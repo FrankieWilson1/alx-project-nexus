@@ -59,8 +59,9 @@ This project focuses on developing a robust backend for a movie recommendation a
 
 This section will document real-world challenges faced during the project and the solutions implemented.
 
-* **[Challenge 1]:** [Brief description of the challenge].
-    * **Solution:** [Brief description of the solution and how it was implemented].
+* **PostgreSQL Connection Issue:**
+    * **Challenge:** The Django application failed to connect to the PostgreSQL database, which was listening on a non-default port (`5323`) rather than the expected default (`5432`).
+    * **Solution:** The .env configuration file (`.env`) was edited to change the `port` setting from `5323` to `5432`. After this correction, the database connection was successfully established, and Django migrations were applied. This highlighted the importance of matching application database settings with the server's configuration.
 
 ---
 
@@ -78,4 +79,4 @@ This diagram provides a visual representation of the database models and their r
 
 
 
-[Image of the database schema](docs/db-schema.png)
+[Image of the database schema](movie_rec_backend/docs/db-schema.png)
