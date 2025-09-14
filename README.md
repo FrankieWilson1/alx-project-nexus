@@ -78,5 +78,4 @@ This diagram provides a visual representation of the database models and their r
 
 
 
-[Image of the database schema]
-(docs/db-schema.png)
+[Image of the database schema](docs/db-schema.png)
