@@ -51,7 +51,7 @@ This project focuses on developing a robust backend for a movie recommendation a
 * **Database Design:** Principles for structuring and organizing data in a database.
 * **Asynchronous Programming:** Techniques for handling multiple tasks simultaneously without blocking execution.
 * **Caching Strategies:** Methods for storing frequently accessed data to improve performance.
-* **System Design:** [Your explanation here]
+* **System Design:** [My explanation here]
 
 ---
 
@@ -79,4 +79,4 @@ This diagram provides a visual representation of the database models and their r
 
 
 [Image of the database schema]
-!(docs/db-schema.png)
+(docs/db-schema.png)
