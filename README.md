@@ -60,8 +60,16 @@ This project focuses on developing a robust backend for a movie recommendation a
 This section will document real-world challenges faced during the project and the solutions implemented.
 
 * **PostgreSQL Connection Issue:**
-    * **Challenge:** The Django application failed to connect to the PostgreSQL database, which was listening on a non-default port (`5323`) rather than the expected default (`5432`).
-    * **Solution:** The .env configuration file (`.env`) was edited to change the `port` setting from `5323` to `5432`. After this correction, the database connection was successfully established, and Django migrations were applied. This highlighted the importance of matching application database settings with the server's configuration.
+  * **Challenge:** The Django application failed to connect to the PostgreSQL database, which was listening on a non-default port (`5323`) rather than the expected default (`5432`).
+  * **Solution:** The .env configuration file (`.env`) was edited to change the `port` setting from `5323` to `5432`. After this correction, the database connection was successfully established, and Django migrations were applied. This highlighted the importance of matching application database settings with the server's configuration.
+
+* **Django REST Framework Template Error:**
+  * **Challenge:** The browsable API returned a `TemplateDoesNotExist` error when attempting to render `rest_framework/api.html`, preventing the API from being viewed in the browser. 
+  * **Solution:** This was resolved by adding `'rest_framework'` to the `INSTALLED_APPS` list in `settings.py`. This ensures that Django can locate and use the necessary templates and other components provided by the DRF library.
+
+* **Django REST Framework Router Basename Error:**
+  * **Challenge:** The `DefaultRouter` in `urls.py` raised an `AssertionError` because it couldn't automatically determine the `basename` for viewsets that lacked a `queryset` attribute.
+  * **Solution:** The `basename` was explicitly defined for each viewset registration in `urls.py` (`router.register(r'favorites', FavoriteMovieViewSet, basename='favorite')`). This provided the router with the necessary information to generate the correct URL patterns.
 
 ---
 
@@ -76,7 +84,5 @@ This section highlights industry best practices, personal insights, and key take
 ### Database Schema
 
 This diagram provides a visual representation of the database models and their relationships, including tables for users, movies, favorites, comments, and likes.
-
-
 
 [Image of the database schema](movie_rec_backend/docs/db-schema.png)
