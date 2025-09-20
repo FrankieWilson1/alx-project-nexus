@@ -1,10 +1,14 @@
 from rest_framework.routers import DefaultRouter
+from django.urls import path
 
 from .views import (
     MovieViewSet,
     FavoriteMovieViewSet,
     CommentViewSet,
-    LikeViewSet
+    LikeViewSet,
+    user_registration_view,
+    recommend_movies,
+    MovieRecommendationsView
 )
 
 router = DefaultRouter()
@@ -13,4 +17,20 @@ router.register(r'favorites', FavoriteMovieViewSet, basename='favorite')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'likes', LikeViewSet, basename='like')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        'register/',
+        user_registration_view,
+        name='register'
+    ),
+    path(
+        'movies/<int:movie_id>/recommendations/',
+        recommend_movies,
+        name='recommend-movies'
+    ),
+    path(
+        'recommendations/',
+        MovieRecommendationsView.as_view(),
+        name='movie-recommendations'
+    ),
+] + router.urls

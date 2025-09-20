@@ -1,5 +1,5 @@
 from rest_framework import viewsets, status
-from rest_framework.permissions import(
+from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly,
     AllowAny,
     IsAuthenticated
@@ -7,6 +7,7 @@ from rest_framework.permissions import(
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.core.cache import cache
+from rest_framework.generics import ListAPIView
 
 from .models import Movie, FavoriteMovie, Comment, Like
 from .serializers import (
@@ -16,6 +17,7 @@ from .serializers import (
     CommentSerializer,
     LikeSerializer
 )
+from .tasks import fetch_and_save_recommendations
 
 
 class MovieViewSet(viewsets.ReadOnlyModelViewSet):
@@ -33,7 +35,7 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
 
         if cache_data:
             return Response(cache_data)
-        
+
         # Fetches data from database if not cached
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
@@ -59,7 +61,7 @@ class FavoriteMovieViewSet(viewsets.ModelViewSet):
         return FavoriteMovie.objects.filter(
             user=self.request.user
         )
-    
+
     def perform_create(self, serializer):
         """
         Saves the authenticated user as the owner of the favorite movie.
@@ -76,7 +78,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Comment.objects.filter(user=self.request.user)
-    
+
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
 
@@ -90,7 +92,7 @@ class LikeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Like.objects.filter(user=self.request.user)
-    
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -111,3 +113,31 @@ def user_registration_view(request):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def recommend_movies(request, movie_id):
+    """
+    Trigger a background task to fetch movie recommendations.
+    """
+    # Triggers Celery task
+    fetch_and_save_recommendations(movie_id)
+
+    return Response(
+        {
+            "message": "Fetching recommendations in the background..."
+        },
+        status=status.HTTP_202_ACCEPTED
+    )
+
+
+class MovieRecommendationsView(ListAPIView):
+    """
+    A view to list recommended movies for a specific movie
+    """
+    serializer_class = MovieSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        return Movie.objects.order_by('-release_date')[:10]
