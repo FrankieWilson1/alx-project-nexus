@@ -15,7 +15,7 @@ def fetch_and_save_trending_movies():
         response = requests.get(base_url, params={'api_key': api_key})
         response.raise_for_status()  # Raises an HTTPError for bad response
         data = response.json()
-        img_url = "https://image.tmdb.org/t/p/w500/"
+        img_url = "https://image.tmdb.org/t/p/w500"
 
         movies = data.get('results', [])
 

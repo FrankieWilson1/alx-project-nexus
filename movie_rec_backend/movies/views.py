@@ -6,6 +6,7 @@ from rest_framework.permissions import(
 )
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from django.core.cache import cache
 
 from .models import Movie, FavoriteMovie, Comment, Like
 from .serializers import (
@@ -23,7 +24,25 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def list(self, request, *args, **kwargs):
+        # Cache key for movie list
+        cache_key = 'movie_list'
+        cache_data = cache.get(cache_key)
+
+        if cache_data:
+            return Response(cache_data)
+        
+        # Fetches data from database if not cached
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        response_data = serializer.data
+
+        # Cache the data for a specific perioud of time.
+        cache.set(cache_key, response_data, 3600)
+
+        return Response(response_data)
 
 
 class FavoriteMovieViewSet(viewsets.ModelViewSet):
