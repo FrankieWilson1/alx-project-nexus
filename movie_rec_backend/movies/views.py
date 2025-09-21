@@ -8,8 +8,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.core.cache import cache
 from rest_framework.generics import ListAPIView
+from rest_framework.mixins import(
+    CreateModelMixin,
+    DestroyModelMixin,
+    ListModelMixin
+)
+from rest_framework.viewsets import GenericViewSet 
 
 from .models import Movie, FavoriteMovie, Comment, Like
+from .permissions import IsOwnerOrReadOnly
 from .serializers import (
     UserRegistrationSerializer,
     MovieSerializer,
@@ -47,12 +54,17 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(response_data)
 
 
-class FavoriteMovieViewSet(viewsets.ModelViewSet):
+class FavoriteMovieViewSet(
+    CreateModelMixin,
+    ListModelMixin,
+    DestroyModelMixin,
+    GenericViewSet
+):
     """
     A viewset for a user's favorite movies.
     """
     serializer_class = FavoriteMovieSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 
     def get_queryset(self):
         """
@@ -69,30 +81,63 @@ class FavoriteMovieViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-class CommentViewSet(viewsets.ModelViewSet):
+class CommentViewSet(
+    CreateModelMixin,
+    ListModelMixin,
+    DestroyModelMixin,
+    GenericViewSet
+):
     """
     A viewset for user comments on movies.
     """
+    queryset = Comment.objects.all() 
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    
     def get_queryset(self):
-        return Comment.objects.filter(user=self.request.user)
-
+        queryset = super().get_queryset()
+        movie_id = self.request.query_params.get('movie')
+        if movie_id:
+            queryset = queryset.filter(movie_id=movie_id)
+        return queryset
+    
     def perform_create(self, serializer):
         return serializer.save(user=self.request.user)
 
 
-class LikeViewSet(viewsets.ModelViewSet):
+class LikeViewSet(
+    CreateModelMixin,
+    ListModelMixin,
+    DestroyModelMixin,
+    GenericViewSet
+):
     """
     A viewset for user likes on movies
     """
+    queryset = Like.objects.all()
     serializer_class = LikeSerializer
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    
     def get_queryset(self):
-        return Like.objects.filter(user=self.request.user)
-
+        """
+        This view returns a list of all the likes for the currently
+        authenticated user
+        """
+        user = self.request.user
+        return Like.objects.filter(user=user)
+    
+    def create(self, request, *args, **kwargs):
+        # Prevent a user from liking the same movie more than once
+        if Like.objects.filter(
+            user=request.user,
+            movie_id=request.data.get('movie')
+        ).exists():
+            return Response(
+                {"detail": "You have already liked this movie."},
+                status=status.HTTP_409_CONFLICT
+            )
+        return super().create(request, *args, **kwargs)
+    
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 

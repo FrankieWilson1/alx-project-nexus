@@ -72,7 +72,13 @@ class FavoriteMovieSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = FavoriteMovie
-        fields = '__all__'
+        fields = [
+            'id',
+            'user',
+            'movie',
+            'created_at'
+        ]
+        read_only_fields = ['user', 'created_at']
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -83,7 +89,7 @@ class CommentSerializer(serializers.ModelSerializer):
         movie (Serializer): converts Movie model to JSON data
     """
     user = serializers.ReadOnlyField(source='user.username')
-    movie = serializers.ReadOnlyField(source='movie.title')
+    # movie = serializers.ReadOnlyField(source='movie.title')
 
     class Meta:
         model = Comment
@@ -96,7 +102,7 @@ class CommentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = (
             'user',
-            'movie',
+            # 'movie',
             'created_at'
         )
 
@@ -109,7 +115,6 @@ class LikeSerializer(serializers.ModelSerializer):
         movie (Serializer): converts Movie model to JSON data
     """
     user = serializers.ReadOnlyField(source='user.username')
-    movie = serializers.ReadOnlyField(source='movie.title')
 
     class Meta:
         model = Like
@@ -121,6 +126,5 @@ class LikeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = (
             'user',
-            'movie',
             'created_at'
         )

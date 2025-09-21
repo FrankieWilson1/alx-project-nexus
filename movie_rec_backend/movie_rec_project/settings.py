@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # Third party app
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_yasg',
     # Customised App
     'movies.apps.MoviesConfig',
 ]
