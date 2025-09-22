@@ -40,6 +40,9 @@ class FavoriteMovie(models.Model):
     )
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'movie',)
 
     def __str__(self):
         return f"{self.user.username} favorited {self.movie.title}"
@@ -89,7 +92,7 @@ class Like(models.Model):
         """
         Ensures a user can only 'like' a movie once
         """
-        unique_together = ('user', 'movie', )
+        unique_together = ('user', 'movie',)
 
     def __str__(self):
-        return f"{self.user.username} favorited {self.movie.title}"
+        return f"{self.user.username} liked {self.movie.title}"

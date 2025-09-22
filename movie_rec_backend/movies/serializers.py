@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import make_password
 
 from .models import Movie, FavoriteMovie, Comment, Like
 
@@ -47,12 +46,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         # Create user after user has been validated.
         user = User.objects.create_user(
             username=validated_data['username'],
-            email=validated_data['email']
+            email=validated_data['email'],
+            password=validated_data['password']
         )
-        user.set_password(
-            validated_data['password']
-        )
-        user.save()
         return user
 
 
@@ -64,6 +60,12 @@ class MovieSerializer(serializers.ModelSerializer):
         model = Movie
         fields = '__all__'
         read_only_fields = ('third_party_id', )
+
+    def get_total_likes(self, obj):
+        return obj.like_set.count()
+    
+    def get_total_comments(self, obj):
+        return obj.comment_set.count()
 
 
 class FavoriteMovieSerializer(serializers.ModelSerializer):
@@ -80,13 +82,19 @@ class FavoriteMovieSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['user', 'created_at']
 
+    def validate(self, attrs):
+        user = self.context['reqeust'].user
+        movie = attrs.get('movie')
+        if FavoriteMovie.objects.filter(user=user, movie=movie).exits():
+            raise serializers.ValidationError({
+                "detail": "You have already favorited this movie."
+            })
+        return attrs
+
 
 class CommentSerializer(serializers.ModelSerializer):
     """
     Comment Serializer class
-    Attributes:
-        user (Serializer): converts User model to JSON data
-        movie (Serializer): converts Movie model to JSON data
     """
     user = serializers.ReadOnlyField(source='user.username')
     # movie = serializers.ReadOnlyField(source='movie.title')
@@ -110,9 +118,6 @@ class CommentSerializer(serializers.ModelSerializer):
 class LikeSerializer(serializers.ModelSerializer):
     """
     Like Serilizer class
-    Attributes:
-        user (Serializer): converts User model to JSON data
-        movie (Serializer): converts Movie model to JSON data
     """
     user = serializers.ReadOnlyField(source='user.username')
 
@@ -128,3 +133,19 @@ class LikeSerializer(serializers.ModelSerializer):
             'user',
             'created_at'
         )
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        movie = attrs.get('movie')
+        if Like.objects.filter(user=user, movie=movie).exists():
+            raise serializers.ValidationError(
+                "You have already liked this movie."
+            )
+        return attrs
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email')
+        read_only_fields = ('id', 'username', 'email',)

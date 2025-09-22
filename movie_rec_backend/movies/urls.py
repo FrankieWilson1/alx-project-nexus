@@ -8,7 +8,8 @@ from .views import (
     LikeViewSet,
     user_registration_view,
     recommend_movies,
-    MovieRecommendationsView
+    MovieRecommendationsView,
+    UserProfileView
 )
 
 router = DefaultRouter()
@@ -23,6 +24,7 @@ urlpatterns = [
         user_registration_view,
         name='register'
     ),
+    path('profile/', UserProfileView.as_view(), name='user-profile'),
     path(
         'movies/<int:movie_id>/recommendations/',
         recommend_movies,
