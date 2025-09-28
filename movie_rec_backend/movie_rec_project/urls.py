@@ -1,8 +1,6 @@
 """
 URL configuration for movie_rec_project project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+...
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -13,8 +11,6 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-
-from movies.views import user_registration_view
 
 # Schema view configuration for Swagger
 schema_view = get_schema_view(
@@ -28,13 +24,13 @@ schema_view = get_schema_view(
         license=openapi.License(name="BSD License"),
     ),
     public=True,
-    permission_classes=(permissions.AllowAny,),
+    permission_classes=[permissions.AllowAny],
 )
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Movie endpoint
+    # Movie endpoint (includes /api/register/)
     path('api/', include('movies.urls')),
     
     # endpoint for documentation url
@@ -59,12 +55,5 @@ urlpatterns = [
         'api/token/refresh/',
         TokenRefreshView.as_view(),
         name='token_refresh'
-    ),
-
-    # User registration endpoint
-    path(
-        'api/register/',
-        user_registration_view,
-        name='user_registration'
     ),
 ]

@@ -14,8 +14,10 @@ from rest_framework.mixins import (
     ListModelMixin
 )
 from rest_framework.viewsets import GenericViewSet
+from rest_framework.pagination import PageNumberPagination
+from drf_yasg.utils import swagger_auto_schema
 
-from .models import Movie, FavoriteMovie, Comment, Like
+from .models import Movie, FavoriteMovie, Comment, Like, Recommendation
 from .permissions import IsOwnerOrReadOnly
 from .serializers import (
     UserRegistrationSerializer,
@@ -23,9 +25,11 @@ from .serializers import (
     FavoriteMovieSerializer,
     CommentSerializer,
     LikeSerializer,
-    UserSerializer
+    UserSerializer,
+    RecommendationSerializer
 )
-from .tasks import fetch_and_save_recommendations
+from .tasks import fetch_and_save_recommendations as rec_task
+from movie_rec_project.pagination import StandardResultsSetPagination
 
 
 class BaseUserObjectViewSet(
@@ -60,19 +64,10 @@ class MovieViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    pagination_class = StandardResultsSetPagination
 
-    def list(self, request, *args, **kwargs):
-        # Cache key for movie queryset
-        cache_key = 'movie_queryset'
-        
-        queryset = cache.get(cache_key)
-        
-        if queryset is None:
-            queryset = self.filter_queryset(self.get_queryset()) 
-            cache.set(cache_key, list(queryset), 3600)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+    # def list(self, request, *args, **kwargs):
+    #     return super().list(request, *args, **kwargs)
 
 
 class FavoriteMovieViewSet(BaseUserObjectViewSet):
@@ -110,6 +105,10 @@ class LikeViewSet(BaseUserObjectViewSet):
 
 # DRF decorator that turns a standard Django func. into an API view
 # Accepts only POST requests.
+@swagger_auto_schema(
+    method='post',
+    request_body=UserRegistrationSerializer
+)
 @api_view(['POST'])
 @permission_classes((AllowAny, ))
 def user_registration_view(request):
@@ -133,7 +132,7 @@ def recommend_movies(request, movie_id):
     Trigger a background task to fetch movie recommendations.
     """
     # Triggers Celery task
-    fetch_and_save_recommendations(movie_id)
+    rec_task.delay(movie_id)
 
     return Response(
         {
@@ -142,21 +141,27 @@ def recommend_movies(request, movie_id):
         status=status.HTTP_202_ACCEPTED
     )
 
-
-class MovieRecommendationsView(ListAPIView):
-    """
-    A view to list recommended movies for a specific movie
-    """
-    serializer_class = MovieSerializer
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        return Movie.objects.order_by('-release_date')[:10]
-
-
+        
 class UserProfileView(RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+
+class RecommendationListAPIView(ListAPIView):
+    """
+    Lists all recommendations for a specific movie, with pagination.
+    """
+    serializer_class = RecommendationSerializer 
+    permission_classes = [IsAuthenticated]
+    
+    pagination_class = StandardResultsSetPagination 
+    
+    def get_queryset(self):
+        movie_id = self.kwargs['movie_id']
+        
+        return Recommendation.objects.filter(
+            source_movie_id=movie_id
+        ).select_related('recommended_movie').order_by('-score') 

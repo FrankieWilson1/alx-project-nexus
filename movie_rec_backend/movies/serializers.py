@@ -1,7 +1,15 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Movie, FavoriteMovie, Comment, Like
+from .models import (
+    Movie,
+    FavoriteMovie,
+    Comment,
+    Like,
+    Genre,
+    CastMember,
+    Recommendation
+)
 
 
 User = get_user_model()
@@ -54,15 +62,36 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class MovieSerializer(serializers.ModelSerializer):
     """
-    A movie serilizer, converts django models to JSON data
+    A movie serilizer, updated to include new fields (overview, duration, genre, cast)
+    and calculated fields (total_likes, total_comments).
     """
+    # Calculated Fields
+    total_likes = serializers.SerializerMethodField()
+    total_comments = serializers.SerializerMethodField()
+    
+    # Many-to-Many Fields (using StringRelatedField for clean output)
+    genres = serializers.StringRelatedField(many=True, read_only=True)
+    cast = serializers.StringRelatedField(many=True, read_only=True)
+
     class Meta:
         model = Movie
-        fields = '__all__'
-        read_only_fields = ('third_party_id', )
+        fields = (
+            'id',
+            'title',
+            'third_party_id',
+            'poster_url',
+            'release_date',
+            'overview',
+            'duration_minutes',
+            'genres',
+            'cast',
+            'total_likes',
+            'total_comments',
+        )
+        read_only_fields = ('third_party_id', 'genres', 'cast')
 
     def get_total_likes(self, obj):
-        return obj.like_set.count()
+        return obj.like_set.count() 
     
     def get_total_comments(self, obj):
         return obj.comment_set.count()
@@ -83,9 +112,9 @@ class FavoriteMovieSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'created_at']
 
     def validate(self, attrs):
-        user = self.context['reqeust'].user
+        user = self.context['request'].user
         movie = attrs.get('movie')
-        if FavoriteMovie.objects.filter(user=user, movie=movie).exits():
+        if FavoriteMovie.objects.filter(user=user, movie=movie).exists():
             raise serializers.ValidationError({
                 "detail": "You have already favorited this movie."
             })
@@ -149,3 +178,11 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'email')
         read_only_fields = ('id', 'username', 'email',)
+
+
+class RecommendationSerializer(serializers.ModelSerializer):
+    recommended_movie = MovieSerializer()
+    
+    class Meta:
+        model = Recommendation
+        fields = ['recommended_movie', 'id']

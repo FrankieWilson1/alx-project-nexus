@@ -2,3 +2,7 @@
 venv
 __pycache__
 challenges.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+Dockerfile

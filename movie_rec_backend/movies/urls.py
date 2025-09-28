@@ -8,7 +8,7 @@ from .views import (
     LikeViewSet,
     user_registration_view,
     recommend_movies,
-    MovieRecommendationsView,
+    RecommendationListAPIView,
     UserProfileView
 )
 
@@ -26,13 +26,13 @@ urlpatterns = [
     ),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path(
-        'movies/<int:movie_id>/recommendations/',
+        'movies/<int:movie_id>/recommendations/trigger/',
         recommend_movies,
-        name='recommend-movies'
+        name='recommended-movies-trigger'
     ),
     path(
-        'recommendations/',
-        MovieRecommendationsView.as_view(),
-        name='movie-recommendations'
+        'movies/<int:movie_id>/recommendations/',
+        RecommendationListAPIView.as_view(),
+        name='movie-recommendations-list'
     ),
 ] + router.urls
