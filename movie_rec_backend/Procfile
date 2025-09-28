@@ -1,0 +1,2 @@
+# Run the web service using Gunicorn (a Python WSGI HTTP Server)
+web: gunicorn movie_rec_project.wsgi:application --log-file -
