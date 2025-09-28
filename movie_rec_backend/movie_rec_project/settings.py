@@ -35,8 +35,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_yasg',
     'whitenoise.runserver_nostatic',
-    # For using django_redis cache backend
-    'django_redis', 
     # Customised App
     'movies.apps.MoviesConfig',
 ]
@@ -201,8 +199,8 @@ SIMPLE_JWT = {
 }
 
 # Celery Configuration Opetions
-CELERY_BROKER_URL = 'amqp://guest:guest@rabbitmq:5672//'
-CELERY_RESULT_BACKEND = 'rpc://'
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
