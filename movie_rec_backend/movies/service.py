@@ -2,6 +2,7 @@ import requests
 from django.conf import settings
 
 from .models import Movie
+from .tasks import fetch_and_save_movie_details
 
 
 def fetch_and_save_trending_movies():
@@ -25,12 +26,16 @@ def fetch_and_save_trending_movies():
             if not Movie.objects.filter(
                 third_party_id=third_party_id
             ).exists():
-                Movie.objects.create(
+               new_movie = Movie.objects.create(
                     title=movie_data.get('title'),
                     third_party_id=third_party_id,
                     poster_url=f"{img_url}{movie_data.get('poster_path')}",
                     release_date=movie_data.get('release_date')
                 )
                 print(f"Saved new movie: {movie_data.get('title')}")
+
+                fetch_and_save_movie_details.delay(new_movie.pk, api_key)
+                print(f"Triggered detail fetch for movie: {new_movie.title")
+
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data from TMDb API: {e}")
