@@ -62,13 +62,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class MovieSerializer(serializers.ModelSerializer):
     """
-    A movie serilizer, updated to include new fields (overview, duration, genre, cast)
+    A movie serilizer, updated to include new fields (overview,
+        duration, genre, cast)
     and calculated fields (total_likes, total_comments).
     """
     # Calculated Fields
     total_likes = serializers.SerializerMethodField()
     total_comments = serializers.SerializerMethodField()
-    
+
     # Many-to-Many Fields (using StringRelatedField for clean output)
     genres = serializers.StringRelatedField(many=True, read_only=True)
     cast = serializers.StringRelatedField(many=True, read_only=True)
@@ -91,8 +92,8 @@ class MovieSerializer(serializers.ModelSerializer):
         read_only_fields = ('third_party_id', 'genres', 'cast')
 
     def get_total_likes(self, obj):
-        return obj.like_set.count() 
-    
+        return obj.like_set.count()
+
     def get_total_comments(self, obj):
         return obj.comment_set.count()
 
@@ -182,7 +183,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RecommendationSerializer(serializers.ModelSerializer):
     recommended_movie = MovieSerializer()
-    
+
     class Meta:
         model = Recommendation
         fields = ['recommended_movie', 'id']

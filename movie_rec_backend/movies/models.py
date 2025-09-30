@@ -175,7 +175,10 @@ class Recommendation(models.Model):
 
     class Meta:
         # Ensures no duplicate recommendation pairs are saved
-        unique_together = ('source_movie', 'recommended_movie') 
+        unique_together = ('source_movie', 'recommended_movie')
 
     def __str__(self):
-        return f"Rec for {self.source_movie.title} -> {self.recommended_movie.title}"
+        return (
+            f"Rec for {self.source_movie_movie.title} -> "
+            f"{self.recommended_movie.title}"
+        )
