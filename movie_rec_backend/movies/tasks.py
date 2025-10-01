@@ -98,7 +98,7 @@ def fetch_and_save_movie_details(movie_pk: int, api_key: str):
     movie.save()
 
 
-@shared_task
+# @shared_task
 @transaction.atomic  # Ensures all DB operations
 # (Movie/Recommendation/Genre/Cast) succeed or fail together
 def fetch_and_save_recommendations(local_movie_pk):
