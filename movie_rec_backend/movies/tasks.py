@@ -160,7 +160,7 @@ def fetch_and_save_recommendations(local_movie_pk):
             )
 
             if created or not recommended_movie.genres.exists():
-                fetch_and_save_movie_details(recommended_movie, api_key)
+                fetch_and_save_movie_details(recommended_movie.pk, api_key)
 
             if created:
                 logger.info(
