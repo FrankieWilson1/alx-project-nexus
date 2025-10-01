@@ -33,7 +33,7 @@ def fetch_and_save_trending_movies():
                     release_date=movie_data.get('release_date')
                 )
                 print(f"Saved new movie: {movie_data.get('title')}")
-                fetch_and_save_movie_details.delay(new_movie.pk, api_key)
+                fetch_and_save_movie_details(new_movie.pk, api_key)
                 print(f"Triggered detail fetch for movie: {new_movie.title}")
 
     except requests.exceptions.RequestException as e:

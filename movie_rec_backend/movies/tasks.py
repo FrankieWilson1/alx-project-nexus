@@ -1,5 +1,5 @@
-from movie_rec_project.celery import app as celery_app
-from celery import shared_task
+# from movie_rec_project.celery import app as celery_app
+# from celery import shared_task
 import requests
 import logging
 from django.conf import settings
@@ -18,7 +18,7 @@ TMDB_IMG_BASE_URL = "https://image.tmdb.org/t/p/w500/"
 TMDB_BASE_URL = "https://api.themoviedb.org/3/movie/"
 
 
-@shared_task
+# @shared_task
 def fetch_and_save_movie_details(movie_pk: int, api_key: str):
     """
     Helper function to fetch detailed data (overview, runtime, genres, cast)
