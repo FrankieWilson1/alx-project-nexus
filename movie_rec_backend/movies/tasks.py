@@ -19,11 +19,19 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3/movie/"
 
 
 @shared_task
-def fetch_and_save_movie_details(movie: Movie, api_key: str):
+def fetch_and_save_movie_details(movie_pk: int, api_key: str):
     """
     Helper function to fetch detailed data (overview, runtime, genres, cast)
     and update the Movie object.
     """
+    try:
+        movie = Movie.objects.get(pk=movie_pk)
+    except Movie.DoesNotExist:
+        logger.warning(
+            f"Movie with PK {movie_pk} not found. Skipping detail fetch."
+        )
+        return
+
     tmdb_id = movie.third_party_id
 
     # Fetch details (overview, runtime, genres)
