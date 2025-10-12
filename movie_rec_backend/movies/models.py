@@ -1,6 +1,5 @@
 from django.db import models
 from django.conf import settings
-from django.db import models
 
 
 class Genre(models.Model):
@@ -10,7 +9,7 @@ class Genre(models.Model):
     Attributes:
         name (str): The name of the genre. Must be unique.
     """
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, db_index=True)
 
     def __str__(self):
         return self.name
@@ -23,7 +22,7 @@ class CastMember(models.Model):
     Attributes:
         name (str): The name of the cast member. Must be unique.
     """
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
 
     def __str__(self):
         return self.name
@@ -40,13 +39,14 @@ class Movie(models.Model):
         release_date (DateTime): Timestamp of the movie.
         overview (str): A brief description or summary of the movie.
         duration_minutes (int): The length of the movie in minutes.
-        genres (ManyToManyField): A relationship to the Genre model
-                                representing the genres of the movie.
+        cast (ManyToManyField): Cast members of the movie.
+        genres (ManyToManyField): Genres of the movie.
+        rating (DecimalField): The aggregate score (0.0 to 10.0)
     """
     title = models.CharField(max_length=255)
     third_party_id = models.IntegerField(unique=True)
     poster_url = models.URLField(max_length=500, null=True, blank=True)
-    release_date = models.DateField(null=True, blank=True)
+    release_date = models.DateField(null=True, blank=True, db_index=True)
     overview = models.TextField(null=True, blank=True)
     duration_minutes = models.IntegerField(null=True, blank=True)
     cast = models.ManyToManyField(
@@ -57,6 +57,13 @@ class Movie(models.Model):
         'Genre',  # Assuming there's a Genre model
         related_name='movies',
         blank=True
+    )
+    rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        default=0.0,
+        blank=True,
+        null=True
     )
 
     def __str__(self):
@@ -73,15 +80,16 @@ class FavoriteMovie(models.Model):
     Attributes:
         user (Foreignkey): The Foreignkey to a user model
         movie (Foreignkey): The Foreignkey to a movie model
-        added_at (DateTimeField) Timestamp to record when the movie is added\
+        added_at (DateTimeField) Timestamp to record when the movie is added
             to the user's favorite's lists
         """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        db_index=True
     )
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         unique_together = ('user', 'movie',)
@@ -103,9 +111,10 @@ class Comment(models.Model):
     """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        db_index=True
     )
-    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, db_index=True)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -135,6 +144,7 @@ class Like(models.Model):
         Ensures a user can only 'like' a movie once
         """
         unique_together = ('user', 'movie',)
+        indexes = [models.Index(fields=['user', 'movie'])]
 
     def __str__(self):
         return f"{self.user.username} liked {self.movie.title}"
@@ -157,7 +167,8 @@ class Recommendation(models.Model):
     source_movie = models.ForeignKey(
         'Movie',
         on_delete=models.CASCADE,
-        related_name='source_recommendations'
+        related_name='source_recommendations',
+        db_index=True
     )
 
     # The movie that is recommended
@@ -179,6 +190,42 @@ class Recommendation(models.Model):
 
     def __str__(self):
         return (
-            f"Rec for {self.source_movie_movie.title} -> "
+            f"Rec for {self.source_movie.title} -> "
             f"{self.recommended_movie.title}"
+        )
+
+
+class PersonalizedRecommendation(models.Model):
+    """
+    Stores pre-calculated movie recommendations unique to a user.
+
+    Attributes:
+        user (ForeignKey): The user for whom the recommendation is intended.
+        recommended_movie (ForeignKey): The movie being recommended.
+        created_at (DateTime): Timestamp of generation.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='personalized_recommendations',
+        db_index=True
+    )
+
+    recommended_movie = models.ForeignKey(
+        'Movie',
+        on_delete=models.CASCADE,
+        related_name='personalized_target'
+    )
+
+    score = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'recommended_movie')
+        ordering = ['-score', '-created_at']
+
+    def __str__(self):
+        return (
+            f"Personal Rec for {self.user.username} ->"
+            f"{self.recommended_movie.title} (score: {self.score})"
         )

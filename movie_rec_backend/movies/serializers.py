@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework.validators import UniqueTogetherValidator
 
 from .models import (
     Movie,
@@ -8,7 +9,8 @@ from .models import (
     Like,
     Genre,
     CastMember,
-    Recommendation
+    Recommendation,
+    PersonalizedRecommendation
 )
 
 
@@ -22,12 +24,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
-        style={'input_type:': 'password'}
+        style={'input_type': 'password'}
     )
     password2 = serializers.CharField(
         write_only=True,
         required=True,
-        style={'input_type:': 'password'}
+        style={'input_type': 'password'}
     )
 
     class Meta:
@@ -38,9 +40,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'password',
             'password2'
         )
-        extra_kwargs = {
-            'write_only': True
-        }
 
     def validate(self, attrs):
         # Validates user password
@@ -51,28 +50,61 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # Deletes 'password2' before creating
+        validated_data.pop('password2')
         # Create user after user has been validated.
         user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
+            **validated_data
         )
         return user
 
 
+class CastMemberSerializer(serializers.ModelSerializer):
+    """Serializer for basic CastMember representation"""
+    class Meta:
+        model = CastMember
+        fields = ('id', 'name')
+
+
+class GenreSerializer(serializers.ModelSerializer):
+    """Serializer for basic Genre representation"""
+    class Meta:
+        model = Genre
+        fields = ('id', 'name')
+
+
+class SlimMovieSerializer(serializers.ModelSerializer):
+    """
+    Serializer specifically for embedding movie details where only poster
+    are needed
+    """
+    class Meta:
+        model = Movie
+        fields = ('id', 'title', 'poster_url')
+        read_only_fields = fields
+
+
 class MovieSerializer(serializers.ModelSerializer):
     """
-    A movie serilizer, updated to include new fields (overview,
-        duration, genre, cast)
-    and calculated fields (total_likes, total_comments).
+    A serializer for the Movie model, designed to handle serilization
+    of movie data, including related genres and cast members.
+
+    Attributes:
+        total_likes (ReadOnlyField): The total number of likes for the movie.
+        total_comments (ReadOnlyField): The total number of comments for a
+        a movie
+        genres (GenreSerializer): A read-only list oof genres associated with
+        the movie
+        cast (CastMemberSerializer): A read-only list of cast members
+        associated with the movie.
     """
     # Calculated Fields
-    total_likes = serializers.SerializerMethodField()
-    total_comments = serializers.SerializerMethodField()
+    total_likes = serializers.ReadOnlyField()
+    total_comments = serializers.ReadOnlyField()
 
-    # Many-to-Many Fields (using StringRelatedField for clean output)
-    genres = serializers.StringRelatedField(many=True, read_only=True)
-    cast = serializers.StringRelatedField(many=True, read_only=True)
+    # Many-to-Many Fields
+    genres = GenreSerializer(many=True, read_only=True)
+    cast = CastMemberSerializer(many=True, read_only=True)
 
     class Meta:
         model = Movie
@@ -88,46 +120,69 @@ class MovieSerializer(serializers.ModelSerializer):
             'cast',
             'total_likes',
             'total_comments',
+            'rating'
         )
-        read_only_fields = ('third_party_id', 'genres', 'cast')
-
-    def get_total_likes(self, obj):
-        return obj.like_set.count()
-
-    def get_total_comments(self, obj):
-        return obj.comment_set.count()
+        read_only_fields = ('third_party_id',)
 
 
 class FavoriteMovieSerializer(serializers.ModelSerializer):
     """
     FavoriteMovie serilizer class
+    Handles the representation of favorite movies, including user information
+    and associated movie details.
+
+    Attributes:
+        user (PrimaryKeyRelatedField): The user who favorited the movie.
+        user_name (ReadOnlyField): The username of the user who favorited
+        the movie.
+        movie_title (ReadOnlyField): The title of the favorited movie.
     """
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    user_name = serializers.ReadOnlyField(
+        source='user.username'
+    )
+    movie_title = serializers.ReadOnlyField(
+        source='movie.title'
+    )
+
     class Meta:
         model = FavoriteMovie
         fields = [
             'id',
             'user',
             'movie',
+            'user_name',
+            'movie_title',
             'created_at'
         ]
-        read_only_fields = ['user', 'created_at']
+        read_only_fields = ['user', 'user_name', 'movie_title', 'created_at']
 
-    def validate(self, attrs):
-        user = self.context['request'].user
-        movie = attrs.get('movie')
-        if FavoriteMovie.objects.filter(user=user, movie=movie).exists():
-            raise serializers.ValidationError({
-                "detail": "You have already favorited this movie."
-            })
-        return attrs
+    validators = [
+        UniqueTogetherValidator(
+            queryset=FavoriteMovie.objects.all(),
+            fields=['user', 'movie'],
+            message="You have already favorited this movie."
+        )
+    ]
+
+    def validate_movie(self, movie):
+        if not Movie.objects.filter(pk=movie.pk).exists():
+            raise serializers.ValidationError("Movie not found")
+        return movie
 
 
 class CommentSerializer(serializers.ModelSerializer):
     """
-    Comment Serializer class
+    Serializer for managing comments on movies.
+    Handles serializer handles the representation of comments, including
+    user information and associated movie details.
+
+    Attributes:
+        user (ReadOnlyField): The username of the user who made the comment.
+        movie_title (ReadOnlyField): The title of the movie being commented on.
     """
     user = serializers.ReadOnlyField(source='user.username')
-    # movie = serializers.ReadOnlyField(source='movie.title')
+    movie_title = serializers.ReadOnlyField(source='movie.title')
 
     class Meta:
         model = Comment
@@ -135,21 +190,30 @@ class CommentSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'movie',
+            'movie_title',
             'text',
             'created_at'
         ]
         read_only_fields = (
             'user',
-            # 'movie',
+            'movie_title',
             'created_at'
         )
 
 
 class LikeSerializer(serializers.ModelSerializer):
     """
-    Like Serilizer class
+    Serializer for managing likes on movies.
+    Hangles representation of likes, including user information and the
+    associated movie..
     """
-    user = serializers.ReadOnlyField(source='user.username')
+    movie_details = SlimMovieSerializer(source='movie', read_only=True)
+    movie = serializers.PrimaryKeyRelatedField(
+        queryset=Movie.objects.all(),
+        write_only=True
+    )
+    
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Like
@@ -157,21 +221,27 @@ class LikeSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'movie',
+            'movie_details',
             'created_at'
         ]
         read_only_fields = (
+            'id',
             'user',
             'created_at'
         )
 
-    def validate(self, attrs):
-        user = self.context['request'].user
-        movie = attrs.get('movie')
-        if Like.objects.filter(user=user, movie=movie).exists():
-            raise serializers.ValidationError(
-                "You have already liked this movie."
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Like.objects.all(),
+                fields=['user', 'movie'],
+                message="You have already liked this movie."
             )
-        return attrs
+        ]
+
+    def validate_movie(self, movie):
+        if not Movie.objects.filter(pk=movie.pk).exists():
+            raise serializers.ValidationError("Movie not found.")
+        return movie
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -186,4 +256,12 @@ class RecommendationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recommendation
-        fields = ['recommended_movie', 'id']
+        fields = ['recommended_movie', 'id', 'score']
+
+
+class PersonalizedRecommendationSerializer(serializers.ModelSerializer):
+    recommended_movie = MovieSerializer()
+
+    class Meta:
+        model = PersonalizedRecommendation
+        fields = ['recommended_movie', 'score']

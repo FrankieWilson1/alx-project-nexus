@@ -22,7 +22,6 @@ ALLOWED_HOSTS = config(
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -36,6 +35,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_yasg',
     'whitenoise.runserver_nostatic',
+    'django_filters',
+    'django_celery_beat',
     # Customised App
     'movies.apps.MoviesConfig',
 ]
@@ -43,7 +44,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -72,19 +72,18 @@ TEMPLATES = [
 WSGI_APPLICATION = 'movie_rec_project.wsgi.application'
 
 # Database Configuration
-# Uses the single DATABASE_URL environment variable provided by PaaS
+DEFAULT_DATABASE_URL = config('DATABASE_URL', default='')
 
-try:
-    # Attempt to configure using the single DATABASE_URL (for production/local)
+if DEFAULT_DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.config(
-            default=config('DATABASE_URL'),
+            default=DEFAULT_DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
         )
     }
-except:
-    # Fallback to your detailed local configuration if DATABASE_URL is not set or fails
+else:
+    # Fallback to detailed local configuration
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -92,7 +91,7 @@ except:
             'USER': config('DB_USER'),
             'PASSWORD': config('DB_PASSWORD'),
             'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT')
+            'PORT': config('DB_PORT', cast=int), # Added cast=int for consistency
         }
     }
 
@@ -209,6 +208,23 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 
+CELERY_BEAT_SCHEDULE = {
+    'fetch-trending-movies': {
+        'task': 'movies.tasks.fetch_and_save_trending_movies',
+        'schedule': timedelta(hours=23),
+    },
+    
+    'generate-item-to-item-recommendations': {
+        'task': 'movies.tasks.generate_all_item_to_item_rec',
+        'schedule': timedelta(hours=3),
+    },
+
+    'calculate-personalized-recommendations': {
+        'task': 'movies.tasks.calculate_personalized_recommendations_for_all',
+        'schedule': timedelta(hours=1),
+    }
+}
+
 # Swagger configuration
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
@@ -232,7 +248,8 @@ CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:3000,http://127.0.0.1:3000',
+    cast=lambda v: [s.strip() for s in v.split(',')]
+)
