@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------
+  # Database Service (PostgreSQL)
+  # ---------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    
+  # --------------------------------------------------------------------
+  # Cache/Broker Service (Redis)
+  # --------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------
+  # Web/Django Service
+  # ----------------------------------------------------------------------
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate &&
+             python manage.py fetch_movies &&
+             gunicorn movie_rec_project.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      # DB credentials to Django settings.
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # Set celery broker/backend URLs to the service names
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    restart: unless-stopped
+
+  # ------------------------------------------------------------
+  # Celery Worker Service
+  # -------------------------------------------------------------
+  celery_worker:
+    build: .
+    command: celery -A movie_rec_project worker -l info
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - web
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    restart: unless-stopped
+
+  # -----------------------------------------------------
+  # Celery Beat Service
+  # -----------------------------------------------------
+  celery_beat:
+    build: .
+    command: celery -A movie_rec_project beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - web
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
