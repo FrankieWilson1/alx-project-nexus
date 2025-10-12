@@ -11,6 +11,7 @@ click-repl==0.3.0
 dj-database-url==3.0.1
 Django==5.2.6
 django-cors-headers==4.9.0
+django-filter==25.2
 django-redis==6.0.0
 django-storages==1.14.6
 django_celery_results==2.6.0
@@ -43,3 +44,4 @@ urllib3==2.5.0
 vine==5.1.0
 wcwidth==0.2.13
 whitenoise==6.11.0
+django-celery-beat
